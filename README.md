@@ -5,7 +5,7 @@
 
 **Хакатон:** Admit Hackathon · кейс «Motion: Камера вместо джойстика» · направление: **фитнес-игра**.
 
-🔗 **Играть:** https://8rzndgg5fp-hub.github.io/Push-Up-Arena-game/
+🔗 **Играть:** https://my3nc4.csb.app/
 Нужны Chrome, Edge или Safari и веб-камера. Без камеры есть режим симуляции.
 
 ---
