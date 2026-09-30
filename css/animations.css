@@ -1,0 +1,61 @@
+/* ==================================================================
+   animations.css — все анимации в одном месте
+   ================================================================== */
+
+/* Переход между экранами */
+.screen { transition: opacity .3s ease, transform .3s ease; }
+.screen.is-hidden { opacity: 0; transform: translateY(12px); }
+
+/* Пульсирующий заголовок */
+.title-pulse { animation: title-pulse 3.2s ease-in-out infinite; }
+.title-pulse .title-gradient { animation: gradient-move 6s linear infinite; }
+@keyframes title-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes gradient-move { to { background-position: 200% center; } }
+
+/* Урон по боссу */
+.shake { animation: shake .45s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-2deg); }
+  40% { transform: translateX(6px) rotate(2deg); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.hp-flash { animation: hp-flash .45s ease; }
+@keyframes hp-flash { 50% { filter: brightness(1.8) saturate(1.4); } }
+
+/* «Пружинка» для подсказок и счётчиков */
+.bump { animation: bump .35s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes bump { 0% { transform: scale(.94); } 100% { transform: scale(1); } }
+.stage-banner.bump { animation: banner-in .35s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes banner-in { 0% { transform: translate(-50%, -10px) scale(.92); } 100% { transform: translate(-50%, 0) scale(1); } }
+
+/* Всплывающий урон */
+.float-dmg { position: absolute; transform: translate(-50%, 0); font: clamp(1.4rem, 4vw, 2.6rem) 'Russo One', sans-serif; white-space: nowrap; pointer-events: none; animation: float-up 1.2s ease-out forwards; }
+.float-dmg.good { color: #34d399; text-shadow: 0 0 18px rgba(16,185,129,.9), 0 2px 0 #000; }
+.float-dmg.bot  { color: #f0abfc; text-shadow: 0 0 18px rgba(217,70,239,.9), 0 2px 0 #000; }
+.float-dmg.bad  { color: #fb7185; text-shadow: 0 0 18px rgba(244,63,94,.9), 0 2px 0 #000; }
+@keyframes float-up {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
+}
+
+/* Отсчёт */
+.count-anim { animation: count-anim .8s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes count-anim { 0% { opacity: 0; transform: scale(2.2); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: .9; transform: scale(.95); } }
+
+/* Подсказка в сайдбаре: вспышка рамки без изменения размеров */
+.fb-pulse { animation: fb-pulse .45s ease; }
+@keyframes fb-pulse { 0% { box-shadow: 0 0 0 0 rgba(148,163,184,0); } 40% { box-shadow: 0 0 0 4px rgba(148,163,184,.35); } 100% { box-shadow: 0 0 0 0 rgba(148,163,184,0); } }
+@keyframes guide-pulse { 50% { opacity: .65; } }
+@keyframes pulse-urgent { 50% { transform: scale(1.08); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes tech-run { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Уважение к настройке «уменьшить движение» */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .cyber-grid { transform: none; }
+}

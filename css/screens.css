@@ -1,0 +1,86 @@
+/* ==================================================================
+   screens.css — главная, планы, конструктор, дуэль, рейтинг,
+   история, результаты
+   ================================================================== */
+
+/* ---------- Главная ---------- */
+.rank-track { height: 8px; border-radius: 999px; background: rgba(148,163,184,.25); overflow: hidden; }
+.rank-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #06b6d4, #d946ef); transition: width .6s ease; }
+
+.cam-status { padding: .75rem 1rem; border-radius: .9rem; font-size: .875rem; font-weight: 600; border: 1px solid; }
+.cam-status[data-tone="ok"]      { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.4); color: #047857; }
+.cam-status[data-tone="bad"]     { background: rgba(244,63,94,.1); border-color: rgba(244,63,94,.4); color: #be123c; }
+.cam-status[data-tone="neutral"] { background: rgba(148,163,184,.1); border-color: rgba(148,163,184,.35); }
+.dark .cam-status[data-tone="ok"]  { color: #6ee7b7; }
+.dark .cam-status[data-tone="bad"] { color: #fda4af; }
+
+.how-list { display: grid; gap: .35rem; }
+.how-list li { position: relative; padding-left: 1rem; color: #475569; }
+.dark .how-list li { color: #cbd5e1; }
+.how-list li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: #06b6d4; }
+
+/* ---------- Планы ---------- */
+.set-chip { display: inline-flex; align-items: center; gap: .25rem; font-size: .8rem; font-weight: 700; padding: .3rem .6rem; border-radius: .6rem; background: rgba(148,163,184,.16); }
+.plan-active { outline: 2px solid #06b6d4; box-shadow: 0 0 28px -8px rgba(6,182,212,.7); }
+
+.builder-row { display: grid; grid-template-columns: 28px 1fr auto auto; gap: .5rem; align-items: center; }
+.builder-num { font: .95rem 'Russo One', sans-serif; color: #06b6d4; text-align: center; }
+.builder-msg[data-tone="ok"]  { color: #059669; }
+.builder-msg[data-tone="bad"] { color: #e11d48; }
+.dark .builder-msg[data-tone="ok"]  { color: #6ee7b7; }
+.dark .builder-msg[data-tone="bad"] { color: #fda4af; }
+
+/* ---------- Дуэль: шансы и ставки ---------- */
+.odds-bar { display: flex; height: 16px; border-radius: 999px; overflow: hidden; background: rgba(148,163,184,.2); }
+.odds-a { background: linear-gradient(90deg, #0891b2, #22d3ee); transition: width .5s ease; }
+.odds-b { background: linear-gradient(90deg, #e879f9, #a21caf); transition: width .5s ease; }
+.odds-side { padding: 1rem; border-radius: .9rem; background: rgba(148,163,184,.1); min-width: 0; }
+.stakes { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; font-size: .8rem; font-weight: 700; }
+.stakes span { padding: .25rem .55rem; border-radius: .5rem; background: rgba(148,163,184,.18); }
+.stakes .win  { background: rgba(16,185,129,.15); color: #047857; }
+.stakes .loss { background: rgba(244,63,94,.15); color: #be123c; }
+.dark .stakes .win  { color: #6ee7b7; }
+.dark .stakes .loss { color: #fda4af; }
+
+/* ---------- Рейтинг ---------- */
+.ranks-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; }
+.rank-pill { display: flex; align-items: center; gap: .6rem; padding: .7rem .9rem; border-radius: .9rem; background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.25); }
+.lb-me { background: rgba(6,182,212,.12); font-weight: 800; }
+
+/* ---------- История ---------- */
+.hist-item { display: flex; align-items: center; gap: .9rem; padding: .9rem 1rem; border-radius: 1rem;
+  background: rgba(255,255,255,.7); border: 1px solid rgba(148,163,184,.3); }
+.dark .hist-item { background: rgba(15,23,42,.6); border-color: rgba(34,211,238,.15); }
+
+/* ---------- Результаты ---------- */
+.result-title[data-outcome="win"]  { color: #059669; }
+.result-title[data-outcome="lose"] { color: #e11d48; }
+.result-title[data-outcome="draw"] { color: #d97706; }
+.dark .result-title[data-outcome="win"]  { color: #34d399; text-shadow: 0 0 24px rgba(52,211,153,.45); }
+.dark .result-title[data-outcome="lose"] { color: #fb7185; text-shadow: 0 0 24px rgba(251,113,133,.45); }
+.dark .result-title[data-outcome="draw"] { color: #fbbf24; }
+.winner { outline: 2px solid #10b981; box-shadow: 0 0 34px -8px rgba(16,185,129,.7); }
+.err-row { padding: .7rem .9rem; border-radius: .8rem; background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.2); }
+
+/* ---------- Выбор бота ---------- */
+.bot-option { display: flex; align-items: center; gap: .75rem; width: 100%; padding: .7rem .9rem; border-radius: .9rem;
+  background: rgba(148,163,184,.1); border: 2px solid rgba(148,163,184,.25); transition: border-color .2s, background .2s; }
+.bot-option:hover { background: rgba(148,163,184,.18); }
+.bot-option.active { border-color: #d946ef; background: rgba(217,70,239,.1); box-shadow: 0 0 22px -8px rgba(217,70,239,.7); }
+
+/* ---------- Карточки упражнений (быстрый старт, дуэль) ---------- */
+.ex-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.ex-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem;
+  min-height: 92px; padding: .7rem .5rem; border-radius: 1rem; text-align: center;
+  background: rgba(148,163,184,.1); border: 2px solid rgba(148,163,184,.25);
+  transition: transform .15s, border-color .2s, background .2s, box-shadow .2s;
+}
+.ex-card:hover { transform: translateY(-2px); border-color: rgba(6,182,212,.55); background: rgba(6,182,212,.08); }
+.ex-card:active { transform: translateY(0) scale(.98); }
+.ex-card.active { border-color: #06b6d4; background: rgba(6,182,212,.12); box-shadow: 0 0 22px -8px rgba(6,182,212,.8); }
+.ex-card-icon { font-size: 2rem; line-height: 1; }
+.ex-card b { font-size: .9rem; }
+.ex-card-sub { font-size: .7rem; font-weight: 600; color: #64748b; }
+.dark .ex-card-sub { color: #94a3b8; }
+@media (max-width: 420px) { .ex-card { min-height: 80px; } .ex-card b { font-size: .78rem; } }

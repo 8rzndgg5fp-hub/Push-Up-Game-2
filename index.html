@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<!--
+  PUSH UP ARENA — Битва с Голиафом
+  Admit Hackathon · кейс «Motion: Камера вместо джойстика» · Фитнес-игра
+
+  Структура:
+    index.html               — разметка экранов (этот файл)
+    css/base.css             — тема, фон, типографика, общие панели и кнопки
+    css/screens.css          — главная, планы, дуэль, рейтинг, история, результаты
+    css/arena.css            — арена: зоны HUD / сцена / сайдбар, оверлеи, окно техники
+    css/animations.css       — все анимации и reduced motion
+    js/config.js             — константы, 6 рангов, каталог ошибок, готовые планы
+    js/utils.js              — помощники и геометрия позы
+    js/storage.js            — профили, история, планы, настройки (localStorage)
+    js/elo.js                — Эло, шансы, ставки
+    js/audio.js              — звуки (Web Audio) и голос (Web Speech)
+    js/fatigue.js            — нагрузка и обязательный отдых
+    js/exercises/rep-fsm.js  — конечный автомат повторения
+    js/exercises/pushup.js   — отжимания и их ошибки
+    js/exercises/squat.js    — приседания и их ошибки
+    js/exercises/pullup.js   — подтягивания и их ошибки
+    js/gestures.js           — жест «руки над головой»
+    js/figures.js            — виртуальный боец (симуляция и окно техники)
+    js/renderer.js           — отрисовка скелета
+    js/demo.js               — симуляция без камеры
+    js/bot.js                — виртуальный соперник для дуэли
+    js/body-guide.js         — гайд зоны захвата (видно ли всё тело)
+    js/camera.js             — камера + MediaPipe Pose Landmarker (2 человека)
+    js/technique.js          — окно «Как правильно»
+    js/player.js             — состояние игрока
+    js/ui.js                 — работа с DOM
+    js/modes/workout.js      — тренировка по плану
+    js/modes/duel.js         — дуэль с ИИ-ботом
+    js/app.js                — главный контроллер
+
+  Запуск: камере нужен HTTPS или localhost → npx serve .  (http://localhost:3000)
+  Симуляция работает и без камеры.
+-->
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>PUSH UP ARENA — Битва с Голиафом</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
+
+  <!-- Tailwind Play CDN: конфиг обязан стоять сразу после, иначе не работает тема по классу .dark -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>if (window.tailwind) tailwind.config = { darkMode: 'class' };</script>
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/screens.css">
+  <link rel="stylesheet" href="css/arena.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-500 overflow-x-hidden">
+
+  <div class="bg-decor" aria-hidden="true"><div class="cyber-grid"></div><div class="blob blob-cyan"></div><div class="blob blob-pink"></div></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <!-- ================= ШАПКА ================= -->
+  <header class="app-header">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+      <button data-nav="screen-home" class="flex items-center gap-2 font-display text-lg shrink-0" title="Главная">
+        <span class="logo-mark">💪</span><span class="hidden md:inline">PUSH UP ARENA</span>
+      </button>
+      <nav class="main-nav" aria-label="Разделы">
+        <button data-nav="screen-home">🏠 <span>Главная</span></button>
+        <button data-nav="screen-plans">📋 <span>Планы</span></button>
+        <button data-nav="screen-duel">⚔️ <span>Дуэль</span></button>
+        <button data-nav="screen-rating">🏆 <span>Рейтинг</span></button>
+        <button data-nav="screen-history">📜 <span>История</span></button>
+      </nav>
+      <div class="ml-auto flex items-center gap-2 shrink-0">
+        <span id="hdr-profile" class="hdr-profile hidden sm:inline-flex">🌱 Игрок</span>
+        <button id="btn-voice" class="icon-btn" aria-label="Голосовые подсказки вкл/выкл" title="Голос">🗣️</button>
+        <button id="btn-sound" class="icon-btn" aria-label="Звук вкл/выкл" title="Звук">🔊</button>
+        <button id="btn-theme" class="icon-btn gap-2" aria-label="Переключить тему">
+          <span id="theme-icon">🌙</span><span id="theme-label" class="text-sm font-semibold hidden lg:inline">Тёмная</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 md:py-8">
+
+    <!-- ==========================================================
+         ГЛАВНАЯ
+         ========================================================== -->
+    <section id="screen-home" class="screen hidden is-hidden">
+      <div class="text-center mb-8 md:mb-10">
+        <h1 class="title-pulse font-display leading-[1.05]">
+          <span class="block text-5xl md:text-7xl title-gradient">PUSH UP ARENA</span>
+          <span class="block text-2xl md:text-4xl mt-2 text-slate-700 dark:text-slate-200">Битва с Голиафом</span>
+        </h1>
+        <p class="mt-4 max-w-xl mx-auto text-slate-600 dark:text-slate-400">Камера вместо джойстика. Засчитываются только чистые повторы — ошибки техники подсвечиваются, озвучиваются и показываются правильно.</p>
+      </div>
+
+      <div class="grid lg:grid-cols-5 gap-6">
+        <!-- Профиль -->
+        <div class="panel lg:col-span-2 p-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display text-xl">Профиль</h2>
+            <select id="profile-select" class="text-input input-sm max-w-[60%]" aria-label="Выбрать профиль"></select>
+          </div>
+          <div id="profile-card"></div>
+          <div class="flex gap-2 mt-5">
+            <input id="new-profile-name" class="text-input input-sm flex-1" maxlength="18" placeholder="Имя нового игрока" autocomplete="off">
+            <button id="btn-create-profile" class="btn-secondary btn-sm">＋ Создать</button>
+          </div>
+        </div>
+
+        <!-- Режимы -->
+        <div class="lg:col-span-3 grid gap-6">
+          <div class="panel p-6">
+            <div class="flex items-start justify-between gap-3">
+              <div><h2 class="font-display text-xl">🏋️ Тренировка по плану</h2>
+                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Подходы, таймер отдыха и бой с Голиафом: каждый чистый повтор — минус 1 HP.</p></div>
+              <button data-nav="screen-plans" class="btn-secondary btn-sm shrink-0">📋 Планы</button>
+            </div>
+            <div class="text-sm font-semibold mt-4 mb-2">⚡ Быстрый старт — выбери упражнение (3 подхода):</div>
+            <div id="quick-cards" class="ex-cards">
+              <button type="button" class="ex-card" data-quick="pushup"><span class="ex-card-icon">💪</span><b>Отжимания</b><span class="ex-card-sub">3 × 10 · боком</span></button>
+              <button type="button" class="ex-card" data-quick="squat"><span class="ex-card-icon">🦵</span><b>Приседания</b><span class="ex-card-sub">3 × 12 · боком/лицом</span></button>
+              <button type="button" class="ex-card" data-quick="pullup"><span class="ex-card-icon">🧗</span><b>Подтягивания</b><span class="ex-card-sub">3 × 5 · лицом</span></button>
+            </div>
+            <div class="text-sm font-semibold mt-5 mb-2">📋 Или тренировка по плану:</div>
+            <select id="plan-select" class="text-input w-full" aria-label="План тренировки"></select>
+            <div id="plan-preview" class="mt-3"></div>
+            <button id="btn-start-workout" class="btn-primary w-full mt-5">▶️ Начать тренировку</button>
+          </div>
+
+          <div class="panel p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1"><h2 class="font-display text-xl">🤖 Дуэль с ИИ · 60 секунд</h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Ты против виртуального бота: его статус, ошибки и счёт видны в реальном времени. Шансы и ставки Эло — до матча.</p></div>
+            <button id="btn-open-duel" class="btn-primary sm:w-56">Настроить дуэль</button>
+          </div>
+
+          <div class="panel p-5 grid sm:grid-cols-2 gap-4">
+            <label class="switch-row"><input id="opt-demo" type="checkbox"><span class="switch"></span>
+              <span><b>Симуляция без камеры</b><br><span class="text-xs text-slate-500 dark:text-slate-400">Виртуальный боец, те же алгоритмы</span></span></label>
+            <label class="switch-row"><input id="opt-tech" type="checkbox"><span class="switch"></span>
+              <span><b>Окно правильной техники</b><br><span class="text-xs text-slate-500 dark:text-slate-400">Анимация после ошибки</span></span></label>
+            <div id="cam-status" class="cam-status sm:col-span-2" data-tone="neutral">Проверяем доступ к камере…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Как это работает -->
+      <div class="panel p-6 mt-6">
+        <h2 class="font-display text-xl mb-4">Что распознаётся</h2>
+        <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-5 text-sm">
+          <div><div class="font-semibold mb-2">💪 Отжимания — боком к камере</div>
+            <ul class="how-list"><li>Мало опускаешься (локоть &gt; 100°)</li><li>Провисший таз</li><li>Задранный таз</li><li>Руки не выпрямлены до конца</li></ul></div>
+          <div><div class="font-semibold mb-2">🦵 Приседания — боком или лицом</div>
+            <ul class="how-list"><li>Недостаточная глубина</li><li>Колени внутрь (лицом)</li><li>Колени за носками, наклон корпуса (боком)</li><li>Неполный подъём, слишком быстрый темп</li></ul></div>
+          <div><div class="font-semibold mb-2">🧗 Подтягивания — лицом к камере</div>
+            <ul class="how-list"><li>Подбородок ниже перекладины</li><li>Неполное разгибание внизу</li><li>Раскачивание, рывок ногами (кипинг)</li><li>Резкий спуск</li></ul></div>
+          <div><div class="font-semibold mb-2">🙌 Жест «руки над головой»</div>
+            <ul class="how-list"><li>Старт подхода и пропуск отдыха</li><li>Старт дуэли с ботом</li><li>Ошибки: «Подними и вторую руку», «Выше головы»</li><li>🛑 100% нагрузки → отдых 2:00</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         ПЛАНЫ И КОНСТРУКТОР
+         ========================================================== -->
+    <section id="screen-plans" class="screen hidden is-hidden">
+      <h2 class="font-display text-3xl mb-6">📋 Планы тренировок</h2>
+      <div id="plans-list" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+
+      <div class="panel p-6 mt-8">
+        <h3 class="font-display text-xl mb-4">🛠️ Конструктор плана</h3>
+        <div class="grid sm:grid-cols-[1fr_180px] gap-3">
+          <input id="builder-name" class="text-input" maxlength="30" placeholder="Название, например «Утро перед парами»">
+          <label class="flex items-center gap-2 text-sm font-semibold">Отдых, с
+            <input id="builder-rest" type="number" min="10" max="300" value="45" class="text-input input-sm w-full"></label>
+        </div>
+        <div id="builder-rows" class="grid gap-2 mt-4"></div>
+        <div class="flex flex-wrap gap-3 mt-4">
+          <button id="btn-add-row" class="btn-secondary btn-sm">＋ Подход</button>
+          <button id="btn-save-plan" class="btn-primary btn-sm px-6">💾 Сохранить план</button>
+          <span id="builder-msg" class="builder-msg self-center text-sm font-semibold"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         НАСТРОЙКА ДУЭЛИ
+         ========================================================== -->
+    <section id="screen-duel" class="screen hidden is-hidden">
+      <h2 class="font-display text-3xl mb-6">🤖 Дуэль с ИИ · 60 секунд</h2>
+      <div class="grid lg:grid-cols-5 gap-6">
+        <div class="panel p-6 lg:col-span-2">
+          <label class="block font-semibold mb-1" for="duel-player">Ты</label>
+          <select id="duel-player" class="text-input w-full"></select>
+          <div class="block font-semibold mt-5 mb-2">Соперник</div>
+          <div id="duel-bots" class="grid gap-2"></div>
+          <div class="block font-semibold mt-5 mb-2">Упражнение</div>
+          <input type="hidden" id="duel-ex" value="pushup">
+          <div id="duel-ex-cards" class="ex-cards"></div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Бот двигается и распознаётся тем же алгоритмом, что и ты: его ошибки тоже не засчитываются.</p>
+        </div>
+        <div class="panel p-6 lg:col-span-3 flex flex-col">
+          <h3 class="font-display text-xl mb-4">Шансы и ставки</h3>
+          <div id="duel-odds"></div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">Победить сильного бота выгоднее, проиграть слабому — больнее. У новичков (меньше 10 дуэлей) рейтинг меняется быстрее.</p>
+          <div class="mt-auto pt-6">
+            <div id="duel-block-msg" class="text-sm font-semibold text-amber-500 mb-2"></div>
+            <button id="btn-start-duel" class="btn-primary w-full">⚔️ На арену</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         АРЕНА
+         Зона 1 — HUD сверху · Зона 2 — сцена · Зона 3 — сайдбар
+         ========================================================== -->
+    <section id="screen-arena" class="screen hidden is-hidden">
+
+      <!-- HUD тренировки -->
+      <div id="hud-workout" class="hud hud-workout mb-4">
+        <div class="panel p-4 flex items-center gap-3">
+          <div id="hw-avatar" class="avatar">И</div>
+          <div class="min-w-0"><div id="hw-name" class="font-display text-lg truncate">Игрок</div>
+            <div id="hw-rank" class="text-sm text-slate-600 dark:text-slate-400 truncate">🌱 Новичок</div></div>
+        </div>
+        <div class="panel p-4">
+          <div class="flex justify-between text-sm font-semibold"><span id="hw-set" class="truncate">Подход 1/4</span><span id="hw-time" class="tabular-nums">0:00</span></div>
+          <div class="flex justify-between items-baseline mt-1"><span id="hw-ex" class="font-display">💪 Отжимания</span><span id="hw-set-reps" class="font-display text-xl tabular-nums">0/12</span></div>
+          <div class="set-track mt-2"><div id="hw-set-bar" class="set-fill" style="width:0%"></div></div>
+        </div>
+        <div class="panel p-4 flex items-center gap-3">
+          <div id="hw-boss-avatar" class="text-4xl select-none">🗿</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between text-sm font-semibold mb-1.5"><span class="font-display">Голиаф</span><span id="hw-boss-text" class="tabular-nums">— HP</span></div>
+            <div id="hw-boss-bar" class="hp-bar"><div id="hw-boss-ghost" class="hp-ghost" style="width:100%"></div><div id="hw-boss-fill" class="hp-fill" style="width:100%"></div></div>
+          </div>
+        </div>
+        <div id="rep-badge" class="panel hud-reps">
+          <div id="hw-reps" class="font-display rep-number tabular-nums">0</div>
+          <div class="text-xs font-semibold text-cyan-700 dark:text-cyan-300">чистых</div>
+        </div>
+      </div>
+
+      <!-- HUD дуэли -->
+      <div id="hud-duel" class="hud hud-duel mb-4 hidden">
+        <div class="panel p-4 duel-card duel-a">
+          <div class="flex items-center justify-between gap-2"><div class="min-w-0"><div id="hd-a-name" class="font-display text-lg truncate">Ты</div>
+            <div id="hd-a-rank" class="text-xs text-slate-600 dark:text-slate-400 truncate">—</div></div>
+            <div id="hd-a-reps" class="font-display rep-number tabular-nums">0</div></div>
+          <div class="duel-track mt-2"><div id="hd-a-bar" class="duel-bar duel-bar-a" style="width:0%"></div></div>
+          <div id="hd-a-err" class="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">ошибок: 0</div>
+        </div>
+        <div class="panel p-4 text-center duel-mid">
+          <div id="hd-ex" class="text-xs font-semibold text-slate-500 dark:text-slate-400">💪 Отжимания</div>
+          <div id="hd-timer" class="font-display text-4xl tabular-nums">1:00</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">ты vs бот</div>
+        </div>
+        <div class="panel p-3 duel-card duel-b bot-card">
+          <canvas id="bot-canvas" class="bot-canvas" width="320" height="180" aria-label="Анимация бота"></canvas>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0"><div id="hd-b-name" class="font-display text-lg truncate">🤖 Бот</div>
+                <div id="hd-b-rank" class="text-xs text-slate-600 dark:text-slate-400 truncate">—</div></div>
+              <div id="hd-b-reps" class="font-display rep-number tabular-nums">0</div>
+            </div>
+            <div class="duel-track mt-1.5"><div id="hd-b-bar" class="duel-bar duel-bar-b" style="width:0%"></div></div>
+            <div id="hd-b-status" class="bot-status" data-state="ok">Разминается</div>
+            <div id="hd-b-err" class="text-xs text-slate-500 dark:text-slate-400 truncate">ошибок: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arena-grid">
+        <!-- ЗОНА 2: сцена -->
+        <div class="stage-col">
+          <div class="stage-toolbar" role="toolbar" aria-label="Управление видео">
+            <button id="btn-fit" class="tool-btn" type="button">🔍 <span>Весь кадр</span></button>
+            <button id="btn-guide" class="tool-btn" type="button" aria-pressed="true" title="Подсказки: видно ли всё тело">📏 <span>Гайд кадра</span></button>
+            <button id="btn-fullscreen" class="tool-btn" type="button" title="Клавиша F">⛶ <span>Во весь экран</span></button>
+            <span id="cam-res" class="tool-note">📷 —</span>
+          </div>
+          <div id="stage" class="stage">
+            <video id="video" class="stage-media mirror" playsinline muted></video>
+            <canvas id="canvas" class="stage-media"></canvas>
+
+            <div id="aura" class="stage-fx" aria-hidden="true"></div>
+            <div id="frame" class="stage-fx stage-frame" aria-hidden="true"></div>
+            <div id="fx-layer" class="stage-fx overflow-hidden" aria-hidden="true"></div>
+
+            <!-- Крупная подсказка поверх видео (сверху, коротко живёт) -->
+            <div id="stage-banner" class="stage-banner hide" data-state="info" role="alert">
+              <div id="banner-title" class="banner-title"></div>
+              <div id="banner-text" class="banner-text"></div>
+            </div>
+
+            <!-- Кольцо удержания жеста -->
+            <div id="gesture-ring" class="gesture-ring hidden">
+              <svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="24" class="ring-track" fill="none" stroke-width="5"/>
+                <circle id="gesture-arc" cx="28" cy="28" r="24" fill="none" stroke="#22d3ee" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8" transform="rotate(-90 28 28)"/></svg>
+              <span>🙌</span><b id="gesture-label">Старт</b>
+            </div>
+
+            <!-- Гайд зоны захвата: какие части тела видны + подсказка -->
+            <div id="body-guide" class="body-guide hidden" data-tone="ok" aria-live="polite">
+              <div id="bg-parts" class="bg-parts"></div>
+              <div id="bg-hint" class="bg-hint"></div>
+            </div>
+
+            <!-- Счёт — виден только в полноэкранном режиме -->
+            <div id="stage-score" class="stage-score"></div>
+
+            <!-- Инструкция снизу сцены -->
+            <div id="stage-strip" class="stage-strip hidden"></div>
+
+            <!-- Отдых между подходами -->
+            <div id="rest-overlay" class="stage-overlay stage-overlay-soft hidden">
+              <div class="text-center">
+                <div class="relative w-32 h-32 mx-auto">
+                  <svg viewBox="0 0 120 120" class="w-32 h-32 -rotate-90"><circle cx="60" cy="60" r="52" fill="none" stroke-width="10" class="ring-track"/>
+                    <circle id="rest-ring" cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="10" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0" class="ring-bar"/></svg>
+                  <div id="rest-sec" class="absolute inset-0 grid place-items-center font-display text-3xl text-cyan-300">0:45</div>
+                </div>
+                <div class="font-display text-2xl mt-3">😮‍💨 Отдых</div>
+                <div id="rest-next" class="text-slate-200 font-semibold mt-1">Дальше: —</div>
+                <div class="text-sm text-slate-300 mt-2">Повторы сейчас не считаются · 🙌 руки вверх — пропустить отдых</div>
+              </div>
+            </div>
+
+            <!-- Обязательный отдых при перегрузке -->
+            <div id="lock-overlay" class="stage-overlay stage-overlay-soft hidden">
+              <div class="text-center max-w-md">
+                <div class="relative w-32 h-32 mx-auto">
+                  <svg viewBox="0 0 120 120" class="w-32 h-32 -rotate-90"><circle cx="60" cy="60" r="52" fill="none" stroke-width="10" class="ring-track"/>
+                    <circle id="lock-ring" cx="60" cy="60" r="52" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0" class="ring-bar"/></svg>
+                  <div id="lock-sec" class="absolute inset-0 grid place-items-center font-display text-3xl text-amber-300">2:00</div>
+                </div>
+                <div class="font-display text-2xl text-amber-300 mt-3">🛑 Перегрузка 100%</div>
+                <div class="text-slate-200 font-semibold mt-1">Обязательный отдых: <span id="lock-who"></span></div>
+                <div class="text-sm text-slate-300 mt-2">Повторы не засчитываются, дуэли заблокированы. Нагрузка спадает сама.</div>
+              </div>
+            </div>
+
+            <!-- Панель камеры (загрузка / ошибка) -->
+            <div id="cam-panel" class="stage-overlay cam-panel hidden"></div>
+
+            <!-- Отсчёт и финальные слова -->
+            <div id="countdown-overlay" class="stage-overlay stage-overlay-clear hidden">
+              <div id="countdown-text" class="font-display countdown-text">3</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ЗОНА 3: сайдбар -->
+        <aside class="sidebar">
+          <div id="feedback" class="feedback" data-state="idle" role="status" aria-live="polite">
+            <div id="feedback-title" class="feedback-title">Готовься</div>
+            <div id="feedback-text" class="feedback-text"></div>
+          </div>
+
+          <button id="btn-primary-action" class="btn-primary hidden">▶️ Начать подход</button>
+
+          <div class="panel p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span id="metric-label" class="metric-label text-sm font-semibold">Угол</span>
+              <span id="metric-value" class="metric-value font-display text-2xl tabular-nums">—</span>
+            </div>
+            <div class="gauge" title="Слева — исходное положение, справа — нужная глубина">
+              <div class="gauge-zone gauge-top"></div><div class="gauge-zone gauge-depth"></div>
+              <div id="gauge-marker" class="gauge-marker" style="left:0%"></div>
+            </div>
+            <div class="gauge-labels"><span id="gauge-lo">исходное</span><span id="gauge-hi">нужная глубина</span></div>
+            <div id="status-chip" class="status-chip text-sm font-semibold mt-3 text-slate-600 dark:text-slate-300">Ждём позу…</div>
+          </div>
+
+          <div class="panel p-4"><div class="text-sm font-semibold mb-2">🔋 Нагрузка</div><div id="load-list" class="grid gap-3"></div></div>
+
+          <div id="demo-controls" class="panel p-4 hidden"></div>
+
+          <div class="panel p-4">
+            <div id="err-title" class="text-sm font-semibold mb-2 truncate">Проверки техники</div>
+            <ul id="err-list" class="err-list"></ul>
+            <div id="ex-setup" class="ex-setup"></div>
+          </div>
+
+          <div class="panel p-4"><div class="text-sm font-semibold mb-2">Журнал</div><ol id="event-log" class="event-log"></ol></div>
+
+          <button id="btn-quit" class="btn-quit">Завершить</button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         РЕЗУЛЬТАТЫ
+         ========================================================== -->
+    <section id="screen-result" class="screen hidden is-hidden">
+      <div id="result-content"></div>
+      <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <button id="btn-again" class="btn-primary px-8">🔁 Ещё раз</button>
+        <button id="btn-home" class="btn-secondary px-8">🏠 На главную</button>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         РЕЙТИНГ
+         ========================================================== -->
+    <section id="screen-rating" class="screen hidden is-hidden">
+      <h2 class="font-display text-3xl mb-6">🏆 Рейтинг</h2>
+      <div id="ranks-legend" class="ranks-legend mb-6"></div>
+      <div class="panel p-5 md:p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-slate-500 dark:text-slate-400"><tr>
+            <th class="py-2 pr-3">#</th><th class="py-2 pr-3">Игрок</th><th class="py-2 pr-3">Ранг</th><th class="py-2 pr-3 text-right">Эло</th>
+            <th class="py-2 pr-3 text-right">В/Н/П</th><th class="py-2 pr-3 text-right">💪 подход</th><th class="py-2 pr-3 text-right">🦵 подход</th><th class="py-2 text-right">🧗 подход</th></tr></thead>
+          <tbody id="rating-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         ИСТОРИЯ И РЕКОРДЫ
+         ========================================================== -->
+    <section id="screen-history" class="screen hidden is-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h2 class="font-display text-3xl">📜 История и рекорды</h2>
+        <div class="flex gap-2"><select id="hist-profile" class="text-input input-sm" aria-label="Игрок"></select>
+          <button id="btn-reset" class="btn-secondary btn-sm">🗑️ Сбросить всё</button></div>
+      </div>
+      <div id="records-box" class="panel p-5 mb-6"></div>
+      <ol id="hist-list" class="grid gap-3"></ol>
+    </section>
+  </main>
+
+  <!-- Окно «Как правильно» (не блокирует игру) -->
+  <div id="tech-modal" class="tech-modal hidden" role="dialog" aria-labelledby="tech-error">
+    <div class="flex items-start justify-between gap-2">
+      <div><div class="text-xs font-semibold text-rose-400">Ошибка</div><div id="tech-error" class="font-display text-lg">—</div></div>
+      <button id="tech-close" class="icon-btn" aria-label="Закрыть">✕</button>
+    </div>
+    <canvas id="tech-canvas" width="640" height="360" class="tech-canvas"></canvas>
+    <div class="text-xs font-semibold text-emerald-400">Как правильно</div>
+    <div id="tech-tip" class="text-sm font-semibold"></div>
+    <div class="tech-progress-track"><div id="tech-progress" class="tech-progress"></div></div>
+  </div>
+
+  <!-- Скрипты: порядок важен (зависимости сверху вниз) -->
+  <script src="js/config.js" defer></script>
+  <script src="js/utils.js" defer></script>
+  <script src="js/storage.js" defer></script>
+  <script src="js/elo.js" defer></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/fatigue.js" defer></script>
+  <script src="js/exercises/rep-fsm.js" defer></script>
+  <script src="js/exercises/pushup.js" defer></script>
+  <script src="js/exercises/squat.js" defer></script>
+  <script src="js/exercises/pullup.js" defer></script>
+  <script src="js/gestures.js" defer></script>
+  <script src="js/figures.js" defer></script>
+  <script src="js/renderer.js" defer></script>
+  <script src="js/demo.js" defer></script>
+  <script src="js/bot.js" defer></script>
+  <script src="js/body-guide.js" defer></script>
+  <script src="js/camera.js" defer></script>
+  <script src="js/technique.js" defer></script>
+  <script src="js/player.js" defer></script>
+  <script src="js/ui.js" defer></script>
+  <script src="js/modes/workout.js" defer></script>
+  <script src="js/modes/duel.js" defer></script>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
